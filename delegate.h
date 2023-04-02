@@ -1,13 +1,17 @@
-#pragma once
+#ifndef DELEGATE_H
+#define DELEGATE_H
+
 #include <memory>
 #include <vector>
 
 #ifndef DECLARE_FUNCTION_DELEGATE
-#define DECLARE_FUNCTION_DELEGATE(DelegateName, ReturnValueType, ...) typedef std::FunDelegate<ReturnValueType,__VA_ARGS__> (DelegateName);
+#define DECLARE_FUNCTION_DELEGATE(DelegateName, ReturnValueType, ...) typedef std::FunDelegate<ReturnValueType, __VA_ARGS__> (DelegateName);
+#define DECLARE_FUNCTION_DELEGATE_NO_PARAMETER(DelegateName, ReturnValueType) typedef std::FunDelegate<ReturnValueType> (DelegateName);
 #endif
 
 #ifndef DECLARE_FUNCTION_MULTICAST_DELEGATE
 #define DECLARE_FUNCTION_MULTICAST_DELEGATE(DelegateName, ...) typedef std::MultiDelegate<__VA_ARGS__> (DelegateName);    
+#define DECLARE_FUNCTION_MULTICAST_DELEGATE_NO_PARAMETER(DelegateName) typedef std::FunDelegate<void> (DelegateName);
 #endif
 
 namespace std
@@ -40,7 +44,7 @@ namespace std
 			explicit DynamicDelegate(ClassT* objPtr, FunT funPtr) :obj(objPtr), func(funPtr) { };
 			~DynamicDelegate() { };
 
-			virtual ReturnT operator() (ArgsT... args)
+			virtual ReturnT operator() (ArgsT... args) override
 			{
 				return (obj->*func)(args...);
 			}
@@ -60,7 +64,7 @@ namespace std
 			explicit StaticDelegate(FunT funPtr) :func(funPtr) { };
 			~StaticDelegate() { };
 
-			virtual ReturnT operator() (ArgsT... args)
+			virtual ReturnT operator() (ArgsT... args) override
 			{
 				return (*func)(args...);
 			}
@@ -70,7 +74,7 @@ namespace std
 	};
 
 	template<typename ReturnT, typename ...ArgsT>
-	class FunDelegate
+	class FunDelegate final
 	{
 	public:
 		explicit FunDelegate();
@@ -79,7 +83,7 @@ namespace std
 		template<typename ClassT>
 		explicit FunDelegate(ClassT* obj, typename DelegateInterface::DynamicDelegate<ClassT, ReturnT, ArgsT...>::FunT funPtr);
 
-		~FunDelegate();
+		 ~FunDelegate();
 
 		void Bind(typename DelegateInterface::StaticDelegate<ReturnT, ArgsT...>::FunT funPtr);
 
@@ -91,11 +95,11 @@ namespace std
 		
 		void Clear();
 	private:
-		std::unique_ptr<DelegateInterface::IDelegate<ReturnT, ArgsT...> > dlgtPtr = nullptr;
+		std::unique_ptr<DelegateInterface::IDelegate<ReturnT, ArgsT...> > dlgtPtr;
 	};
 
 	template<typename ...ArgsT>
-	class MultiDelegate
+	class MultiDelegate final
 	{
 	public:
 		MultiDelegate();
@@ -181,7 +185,7 @@ inline ReturnT std::FunDelegate<ReturnT, ArgsT...>::operator()(ArgsT ...args)
 template<typename ReturnT, typename ...ArgsT>
 inline void std::FunDelegate<ReturnT, ArgsT...>::Clear()
 {
-	dlgtPtr = nullptr;
+	dlgtPtr.reset();
 }
 
 template<typename ...ArgsT>
@@ -266,3 +270,5 @@ inline void std::MultiDelegate<ArgsT...>::Clear()
 	//引用计数为0时自动释放对象
 	dlgtPtrArray.clear();
 }
+
+#endif
