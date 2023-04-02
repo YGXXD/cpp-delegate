@@ -26,9 +26,10 @@ namespace std
 		struct IDelegate
 		{
 			virtual ReturnT operator() (ArgsT... args) = 0;
+			virtual ~IDelegate() { };
 		};
 
-		//Àà³ÉÔ±º¯ÊıÄ£°å
+		//ç±»æˆå‘˜å‡½æ•°æ¨¡æ¿
 		template<typename ClassT, typename ReturnT, typename ...ArgsT>
 		class DynamicDelegate : public IDelegate<ReturnT, ArgsT...>
 		{
@@ -48,7 +49,7 @@ namespace std
 			FunT func;
 		};
 
-		//·Ç³ÉÔ±º¯ÊıÄ£°å
+		//éæˆå‘˜å‡½æ•°æ¨¡æ¿
 		template<typename ReturnT, typename ...ArgsT>
 		class StaticDelegate : public IDelegate<ReturnT, ArgsT...>
 		{
@@ -262,6 +263,6 @@ inline bool std::MultiDelegate<ArgsT...>::RemoveFunc(ClassT* obj, typename Deleg
 template<typename ...ArgsT>
 inline void std::MultiDelegate<ArgsT...>::Clear()
 {
-	//ÒıÓÃ¼ÆÊıÎª0Ê±×Ô¶¯ÊÍ·Å¶ÔÏó
+	//å¼•ç”¨è®¡æ•°ä¸º0æ—¶è‡ªåŠ¨é‡Šæ”¾å¯¹è±¡
 	dlgtPtrArray.clear();
 }
