@@ -1,7 +1,7 @@
 #include "delegate.h"
 #include <iostream>
 
-using namespace dlgt;
+using namespace xxd;
 using namespace std;
 
 DECLARE_FUNCTION_MULTICAST_DELEGATE(FOnAdd, int, int)
