@@ -1,5 +1,5 @@
-#ifndef DELEGATE_H
-#define DELEGATE_H
+#ifndef DELEGATE_HPP
+#define DELEGATE_HPP
 
 #include <memory>
 #include <sstream>

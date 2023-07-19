@@ -1,4 +1,4 @@
-#include "delegate.h"
+#include "Delegate.hpp"
 #include <iostream>
 
 using namespace xxd;
