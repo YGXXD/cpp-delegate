@@ -41,15 +41,15 @@ private:
         virtual ~IDelegate() { };
     };
 
-    //类成员函数模板
-    template<typename ClassT, typename ReturnT, typename ...ArgsT>
+    // 类成员函数委托模板
+    template<class ClassT, typename ReturnT, typename ...ArgsT>
     class ObjFuncDelegate : public IDelegate<ReturnT, ArgsT...>
     {
     public:
         typedef ReturnT(ClassT::* FunT) (ArgsT...);
 
         ObjFuncDelegate() = delete;
-        explicit ObjFuncDelegate(ClassT* objPtr, const FunT& funPtr) :obj(objPtr), func(funPtr) { };
+        explicit ObjFuncDelegate(ClassT* objPtr, const FunT& objFun) : obj(objPtr), func(objFun) { };
 
         virtual ReturnT operator() (ArgsT... args) override
         {
@@ -60,7 +60,7 @@ private:
         FunT func;
     };
 
-    //非成员函数模板
+    // 非成员函数委托模板
     template<typename ReturnT, typename ...ArgsT>
     class FuncDelegate : public IDelegate<ReturnT, ArgsT...>
     {
@@ -68,7 +68,7 @@ private:
         typedef ReturnT(*FunT) (ArgsT...);
 
         FuncDelegate() = delete;
-        explicit FuncDelegate(FunT funPtr) :func(funPtr) { };
+        explicit FuncDelegate(FunT fun) : func(fun) { };
 
         virtual ReturnT operator() (ArgsT... args) override
         {
@@ -78,16 +78,16 @@ private:
         FunT func;
     };
     
-    //带有安全检测的类成员函数模板
-    template<typename ClassT, typename ReturnT, typename ...ArgsT>
-    class ObjFuncSafeDelegate : public DelegateInterface::IDelegate<ReturnT, ArgsT...>
+    // 带有安全检测的类成员函数委托模板
+    template<class ClassT, typename ReturnT, typename ...ArgsT>
+    class ObjFuncSafeDelegate : public IDelegate<ReturnT, ArgsT...>
     {
     public:
         typedef ReturnT(ClassT::* FunT) (ArgsT...);
 
         ObjFuncSafeDelegate() = delete;
-        explicit ObjFuncSafeDelegate(const std::shared_ptr<ClassT>& objShared, const FunT& funPtr) :obj(objShared), func(funPtr) { };
-        explicit ObjFuncSafeDelegate(const std::weak_ptr<ClassT>& objWeak, const FunT& funPtr) :obj(objWeak), func(funPtr) { };
+        explicit ObjFuncSafeDelegate(const std::shared_ptr<ClassT>& objShared, const FunT& objFun) : obj(objShared), func(objFun) { };
+        explicit ObjFuncSafeDelegate(const std::weak_ptr<ClassT>& objWeak, const FunT& objFun) : obj(objWeak), func(objFun) { };
 
         virtual ReturnT operator() (ArgsT... args) override
         {
@@ -100,6 +100,23 @@ private:
         FunT func;
     };
     
+    // Lambda表达式函数委托模版
+    template<class LambdaT, typename ReturnT, typename ...ArgsT>
+    class LambdaDelegate : public IDelegate<ReturnT, ArgsT...>
+    {
+    public:
+        LambdaDelegate() = delete;
+        explicit LambdaDelegate(const LambdaT& lambdaFun) : lambda(lambdaFun) { };
+
+        virtual ReturnT operator() (ArgsT... args) override
+        {
+            return lambda(args...);
+        }
+
+        LambdaT lambda;
+    };
+    
+    // Handle转化为字符串函数
     inline static std::string HandleToString(const DelegateHandle& handle)
     {
         std::stringstream ss;
@@ -113,30 +130,38 @@ class SingleDelegate final
 {
 public:
     explicit SingleDelegate() = default;
-    explicit SingleDelegate(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT funPtr);
     
-    template<typename ClassT>
-    explicit SingleDelegate(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr);
-
-    template<typename ClassT>
-    explicit SingleDelegate(std::shared_ptr<ClassT> objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr);
+    static SingleDelegate CreateFunction(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT fun);
     
-    template<typename ClassT>
-    explicit SingleDelegate(std::weak_ptr<ClassT> objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    static SingleDelegate CreateObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun);
+    
+    template<class ClassT>
+    static SingleDelegate CreateSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun);
+    
+    template<class ClassT>
+    static SingleDelegate CreateSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun);
+    
+    template<class LambdaT>
+    static SingleDelegate CreateLambda(const LambdaT& lambda);
     
     // 绑定全局或静态函数
-    void BindFunction(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT funPtr);
+    void BindFunction(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT fun);
 
     // 绑定类成员函数
-    template<typename ClassT>
-    void BindObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    void BindObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun);
 
     // 绑定安全的类成员函数
-    template<typename ClassT>
-    void BindSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    void BindSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun);
     
-    template<typename ClassT>
-    void BindSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    void BindSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun);
+    
+    // 绑定lambda函数
+    template<class LambdaT>
+    void BindLambda(const LambdaT& lambda);
 
     // 代理执行
     ReturnT Invoke(ArgsT... args);
@@ -144,8 +169,9 @@ public:
     
     // 解绑函数
     void UnBind();
+    
 private:
-    std::unique_ptr<DelegateInterface::IDelegate<ReturnT, ArgsT...> > dlgtPtr;
+    std::shared_ptr<DelegateInterface::IDelegate<ReturnT, ArgsT...> > dlgtPtr;
 };
 
 template<typename ...ArgsT>
@@ -155,39 +181,50 @@ public:
     explicit MultiDelegate() = default;
 
     // 添加全局或静态函数
-    DelegateHandle AddFunction(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT funPtr);
+    DelegateHandle AddFunction(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT fun);
 
     // 添加类成员函数
-    template<typename ClassT>
-    DelegateHandle AddObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    DelegateHandle AddObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun);
     
     // 添加安全的类成员函数
-    template<typename ClassT>
-    DelegateHandle AddSafeObj(std::shared_ptr<ClassT> objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    DelegateHandle AddSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun);
     
-    template<typename ClassT>
-    DelegateHandle AddSafeObj(std::weak_ptr<ClassT> objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    DelegateHandle AddSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun);
 
+    // 添加lambda函数
+    template<class LambdaT>
+    DelegateHandle AddLambda(const LambdaT& lambda);
+    
     // 多播代理执行
     void BroadCast(ArgsT... args);
     void operator() (ArgsT... args);
     
-    // 移除函数
+    // 根据代理句柄移除
     bool Remove(const DelegateHandle& handle);
-    bool Remove(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT funPtr);
+    
+    // 移除全局或静态函数
+    bool Remove(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT objFun);
 
-    template<typename ClassT>
-    bool Remove(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr);
+    // 移除类成员函数
+    template<class ClassT>
+    bool Remove(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun);
     
-    template<typename ClassT>
-    bool Remove(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr);
+    // 移除安全类成员函数
+    template<class ClassT>
+    bool Remove(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun);
     
-    template<typename ClassT>
-    bool Remove(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr);
+    template<class ClassT>
+    bool Remove(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun);
     
     // 清空代理
     void Clear();
 private:
+    // 遍历dlgtMap，判断为真才会被移除
+    template<class Comp>
+    bool Remove(const Comp& rmLambda);
     
     uint32_t dlgtId;
     std::unordered_map<std::string, std::shared_ptr<DelegateInterface::IDelegate<void, ArgsT...> > > dlgtMap;
@@ -196,61 +233,86 @@ private:
 }
 
 template<typename ReturnT, typename ...ArgsT>
-inline xxd::SingleDelegate<ReturnT, ArgsT...>::SingleDelegate(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT funPtr)
+inline xxd::SingleDelegate<ReturnT, ArgsT...> xxd::SingleDelegate<ReturnT, ArgsT...>::CreateFunction(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT fun)
 {
-    BindFunction(funPtr);
+    SingleDelegate<ReturnT, ArgsT...> dlgt;
+    dlgt.BindFunction(fun);
+    return dlgt;
 }
 
 template<typename ReturnT, typename ...ArgsT>
-template<typename ClassT>
-inline xxd::SingleDelegate<ReturnT, ArgsT...>::SingleDelegate(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline xxd::SingleDelegate<ReturnT, ArgsT...> xxd::SingleDelegate<ReturnT, ArgsT...>::CreateObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun)
 {
-    BindObject(obj, funPtr);
+    SingleDelegate<ReturnT, ArgsT...> dlgt;
+    dlgt.BindObject(obj, objFun);
+    return dlgt;
 }
 
 template<typename ReturnT, typename ...ArgsT>
-template<typename ClassT>
-inline xxd::SingleDelegate<ReturnT, ArgsT...>::SingleDelegate(std::shared_ptr<ClassT> objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline xxd::SingleDelegate<ReturnT, ArgsT...> xxd::SingleDelegate<ReturnT, ArgsT...>::CreateSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun)
 {
-    BindSafeObj(objShared, funPtr);
+    SingleDelegate<ReturnT, ArgsT...> dlgt;
+    dlgt.BindSafeObj(objShared, objFun);
+    return dlgt;
 }
 
 template<typename ReturnT, typename ...ArgsT>
-template<typename ClassT>
-inline xxd::SingleDelegate<ReturnT, ArgsT...>::SingleDelegate(std::weak_ptr<ClassT> objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline xxd::SingleDelegate<ReturnT, ArgsT...> xxd::SingleDelegate<ReturnT, ArgsT...>::CreateSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun)
 {
-    BindSafeObj(objWeak, funPtr);
+    SingleDelegate<ReturnT, ArgsT...> dlgt;
+    dlgt.BindSafeObj(objWeak, objFun);
+    return dlgt;
 }
 
 template<typename ReturnT, typename ...ArgsT>
-inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindFunction(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT funPtr)
+template<class LambdaT>
+inline xxd::SingleDelegate<ReturnT, ArgsT...> xxd::SingleDelegate<ReturnT, ArgsT...>::CreateLambda(const LambdaT& lambda)
 {
-    UnBind()();
-    dlgtPtr = std::make_unique<DelegateInterface::FuncDelegate<ReturnT, ArgsT...> >(funPtr);
+    SingleDelegate<ReturnT, ArgsT...> dlgt;
+    dlgt.BindLambda(lambda);
+    return dlgt;
 }
 
 template<typename ReturnT, typename ...ArgsT>
-template<typename ClassT>
-inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr)
+inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindFunction(typename DelegateInterface::FuncDelegate<ReturnT, ArgsT...>::FunT fun)
 {
     UnBind();
-    dlgtPtr = std::make_unique<DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...> >(obj, funPtr);
+    dlgtPtr = std::make_shared<DelegateInterface::FuncDelegate<ReturnT, ArgsT...> >(fun);
 }
 
 template<typename ReturnT, typename ...ArgsT>
-template<typename ClassT>
-inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun)
 {
     UnBind();
-    dlgtPtr = std::make_unique<DelegateInterface::ObjFuncSafeDelegate<ClassT, ReturnT, ArgsT...> >(objShared, funPtr);
+    dlgtPtr = std::make_shared<DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...> >(obj, objFun);
 }
 
 template<typename ReturnT, typename ...ArgsT>
-template<typename ClassT>
-inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun)
 {
     UnBind();
-    dlgtPtr = std::make_unique<DelegateInterface::ObjFuncSafeDelegate<ClassT, ReturnT, ArgsT...> >(objWeak, funPtr);
+    dlgtPtr = std::make_shared<DelegateInterface::ObjFuncSafeDelegate<ClassT, ReturnT, ArgsT...> >(objShared, objFun);
+}
+
+template<typename ReturnT, typename ...ArgsT>
+template<class ClassT>
+inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, ReturnT, ArgsT...>::FunT& objFun)
+{
+    UnBind();
+    dlgtPtr = std::make_shared<DelegateInterface::ObjFuncSafeDelegate<ClassT, ReturnT, ArgsT...> >(objWeak, objFun);
+}
+
+template<typename ReturnT, typename ...ArgsT>
+template<class LambdaT>
+inline void xxd::SingleDelegate<ReturnT, ArgsT...>::BindLambda(const LambdaT& lambda)
+{
+    UnBind();
+    dlgtPtr = std::make_shared<DelegateInterface::LambdaDelegate<LambdaT, ReturnT, ArgsT...> >(lambda);
 }
 
 template<typename ReturnT, typename ...ArgsT>
@@ -275,43 +337,54 @@ inline void xxd::SingleDelegate<ReturnT, ArgsT...>::UnBind()
 }
 
 template<typename ...ArgsT>
-inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddFunction(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT funPtr)
+inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddFunction(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT fun)
 {
-    DelegateHandle handle = { 0, dlgtId++, this, (void*)funPtr };
-    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::FuncDelegate<void, ArgsT...> >(funPtr);
+    DelegateHandle handle = { 0, dlgtId++, this, (void*)fun };
+    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::FuncDelegate<void, ArgsT...> >(fun);
     
     return handle;
 }
 
 template<typename ...ArgsT>
-template<typename ClassT>
-inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddObject(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun)
 {
     DelegateHandle handle = { 1, dlgtId++, this, (void*)obj };
-    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...> >(obj, funPtr);
+    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...> >(obj, objFun);
     
     return handle;
 }
 
 template<typename ...ArgsT>
-template<typename ClassT>
-inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddSafeObj(std::shared_ptr<ClassT> objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddSafeObj(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun)
 {
     DelegateHandle handle = { 2, dlgtId++, this, (void*)objShared.get() };
-    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::ObjFuncSafeDelegate<ClassT, void, ArgsT...> >(objShared, funPtr);
+    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::ObjFuncSafeDelegate<ClassT, void, ArgsT...> >(objShared, objFun);
     
     return handle;
 }
 
 template<typename ...ArgsT>
-template<typename ClassT>
-inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddSafeObj(std::weak_ptr<ClassT> objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddSafeObj(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun)
 {
     DelegateHandle handle = { 2, dlgtId++, this, (void*)objWeak.lock().get() };
-    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::ObjFuncSafeDelegate<ClassT, void, ArgsT...> >(objWeak, funPtr);
+    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::ObjFuncSafeDelegate<ClassT, void, ArgsT...> >(objWeak, objFun);
     
     return handle;
 }
+
+template<typename ...ArgsT>
+template<class LambdaT>
+inline xxd::DelegateHandle xxd::MultiDelegate<ArgsT...>::AddLambda(const LambdaT& lambda)
+{
+    DelegateHandle handle = { 3, dlgtId++, this, 0 };
+    dlgtMap[DelegateInterface::HandleToString(handle)] = std::make_shared<DelegateInterface::LambdaDelegate<LambdaT, void, ArgsT...> >(lambda);
+    
+    return handle;
+}
+
 template<typename ...ArgsT>
 inline void xxd::MultiDelegate<ArgsT...>::BroadCast(ArgsT ...args)
 {
@@ -340,65 +413,48 @@ inline bool xxd::MultiDelegate<ArgsT...>::Remove(const xxd::DelegateHandle& hand
 }
 
 template<typename ...ArgsT>
-inline bool xxd::MultiDelegate<ArgsT...>::Remove(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT funPtr)
+inline bool xxd::MultiDelegate<ArgsT...>::Remove(typename DelegateInterface::FuncDelegate<void, ArgsT...>::FunT objFun)
 {
-    for (auto it = dlgtMap.begin(); it != dlgtMap.end(); it++)
+    auto rmLambda = [&](const typename std::unordered_map<std::string, std::shared_ptr<DelegateInterface::IDelegate<void, ArgsT...> > >::iterator& it)->bool
     {
         DelegateInterface::IDelegate<void, ArgsT...>* dlgtPtr = (*it).second.get();
         auto flag = dynamic_cast<DelegateInterface::FuncDelegate<void, ArgsT...>*>(dlgtPtr);
-        if (flag && flag->func == funPtr)
-        {
-            dlgtMap.erase(it);
-            return true;
-        }
-    }
-    return false;
+        return flag && flag->func == objFun;
+    };
+    return Remove(rmLambda);
 }
 
 template<typename ...ArgsT>
-template<typename ClassT>
-inline bool xxd::MultiDelegate<ArgsT...>::Remove(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline bool xxd::MultiDelegate<ArgsT...>::Remove(ClassT* obj, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun)
 {
-    for (auto it = dlgtMap.begin(); it != dlgtMap.end(); it++)
+    auto rmLambda = [&](const typename std::unordered_map<std::string, std::shared_ptr<DelegateInterface::IDelegate<void, ArgsT...> > >::iterator& it)->bool
     {
         DelegateInterface::IDelegate<void, ArgsT...>* dlgtPtr = (*it).second.get();
         auto flag = dynamic_cast<DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>*>(dlgtPtr);
-        if (flag && flag->func == funPtr && flag->obj == obj)
-        {
-            dlgtMap.erase(it);
-            return true;
-        }
-    }
-    return false;
+        return flag && flag->func == objFun && flag->obj == obj;
+    };
+    return Remove(rmLambda);
 }
 
 template<typename ...ArgsT>
-template<typename ClassT>
-inline bool xxd::MultiDelegate<ArgsT...>::Remove(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline bool xxd::MultiDelegate<ArgsT...>::Remove(const std::shared_ptr<ClassT>& objShared, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun)
 {
-    for (auto it = dlgtMap.begin(); it != dlgtMap.end(); it++)
+    auto rmLambda = [&](const typename std::unordered_map<std::string, std::shared_ptr<DelegateInterface::IDelegate<void, ArgsT...> > >::iterator& it)->bool
     {
         DelegateInterface::IDelegate<void, ArgsT...>* dlgtPtr = (*it).second.get();
         auto flag = dynamic_cast<DelegateInterface::ObjFuncSafeDelegate<ClassT, void, ArgsT...>*>(dlgtPtr);
-        if (flag && flag->func == funPtr && flag->obj.lock() == objShared)
-        {
-            dlgtMap.erase(it);
-            return true;
-        }
-    }
-    return false;
+        return flag && flag->func == objFun && flag->obj.lock() == objShared;
+    };
+    return Remove(rmLambda);
 }
 
 template<typename ...ArgsT>
-template<typename ClassT>
-inline bool xxd::MultiDelegate<ArgsT...>::Remove(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& funPtr)
+template<class ClassT>
+inline bool xxd::MultiDelegate<ArgsT...>::Remove(const std::weak_ptr<ClassT>& objWeak, const typename DelegateInterface::ObjFuncDelegate<ClassT, void, ArgsT...>::FunT& objFun)
 {
-    auto objShared = objWeak.lock();
-    if(objShared.get())
-    {
-        return Remove(objShared, funPtr);
-    }
-    return false;
+    return !objWeak.expired() ? Remove(objWeak.lock(), objFun) : false;
 }
 
 template<typename ...ArgsT>
@@ -406,6 +462,29 @@ inline void xxd::MultiDelegate<ArgsT...>::Clear()
 {
     //引用计数为0时自动释放对象
     dlgtMap.clear();
+}
+
+template<typename ...ArgsT>
+template<class Comp>
+inline bool xxd::MultiDelegate<ArgsT...>::Remove(const Comp& rmLambda)
+{
+    std::vector<typename std::unordered_map<std::string, std::shared_ptr<DelegateInterface::IDelegate<void, ArgsT...> > >::iterator> deleteIts;
+    
+    for (auto it = dlgtMap.begin(); it != dlgtMap.end(); it++)
+    {
+        if (rmLambda(it))
+        {
+            deleteIts.push_back(it);
+        }
+    }
+    
+    bool rmSuccess = deleteIts.size();
+    if(rmSuccess)
+    {
+        for(const auto& dlgtIt : deleteIts)
+            dlgtMap.erase(dlgtIt);
+    }
+    return rmSuccess;
 }
 
 #endif
