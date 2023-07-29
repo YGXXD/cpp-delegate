@@ -2,6 +2,7 @@
 #define DELEGATE_HPP
 
 #include <memory>
+#include <unordered_map>
 #include <sstream>
 
 #ifndef DECLARE_FUNCTION_DELEGATE
