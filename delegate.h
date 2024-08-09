@@ -122,7 +122,7 @@ private:
             return func(args...);
         }
 
-        std::decay_t<AnyFuncT> func;
+        typename std::decay<AnyFuncT>::type func;
     };
     
 };
@@ -187,7 +187,7 @@ public:
     
     // 绑定任意可调用对象
     template<class AnyFuncT>
-    inline std::enable_if_t<!std::is_same_v<std::decay_t<AnyFuncT>, single_delegate<ReturnT(ArgsT...)>>> bind_any_func(AnyFuncT&& func) noexcept;
+    inline typename std::enable_if<!std::is_same<typename std::decay<AnyFuncT>::type, single_delegate<ReturnT(ArgsT...)>>::value>::type bind_any_func(AnyFuncT&& func) noexcept;
 
     // 代理执行
     inline ReturnT invoke(ArgsT... args) noexcept;
@@ -220,7 +220,7 @@ public:
     
     // 添加任意可调用对象
     template<class AnyFuncT>
-    inline std::enable_if_t<!std::is_same_v<std::decay_t<AnyFuncT>, multi_delegate<void(ArgsT...)>>, delegate_handle> add_any_func(AnyFuncT&& func) noexcept;
+    inline typename std::enable_if<!std::is_same<typename std::decay<AnyFuncT>::type, multi_delegate<void(ArgsT...)>>::value, delegate_handle>::type add_any_func(AnyFuncT&& func) noexcept;
     
     // 多播代理执行
     void broad_cast(ArgsT... args) noexcept;
@@ -310,7 +310,7 @@ inline void xxd::single_delegate<ReturnT(ArgsT...)>::bind_safe_obj(const std::sh
 
 template<typename ReturnT, typename ...ArgsT>
 template<class AnyFuncT>
-inline std::enable_if_t<!std::is_same_v<std::decay_t<AnyFuncT>, xxd::single_delegate<ReturnT(ArgsT...)>>> xxd::single_delegate<ReturnT(ArgsT...)>::bind_any_func(AnyFuncT&& func) noexcept
+inline typename std::enable_if<!std::is_same<typename std::decay<AnyFuncT>::type, xxd::single_delegate<ReturnT(ArgsT...)>>::value>::type xxd::single_delegate<ReturnT(ArgsT...)>::bind_any_func(AnyFuncT&& func) noexcept
 {
     dlgt_ptr = std::make_shared<dlgt::any_func_delegate<AnyFuncT, ReturnT(ArgsT...)>>(std::forward<AnyFuncT>(func));
 }
@@ -370,7 +370,7 @@ inline xxd::delegate_handle xxd::multi_delegate<ArgsT...>::add_safe_obj(const st
 
 template<typename ...ArgsT>
 template<class AnyFuncT>
-inline std::enable_if_t<!std::is_same_v<std::decay_t<AnyFuncT>, xxd::multi_delegate<void(ArgsT...)>>, xxd::delegate_handle> xxd::multi_delegate<ArgsT...>::add_any_func(AnyFuncT&& func) noexcept
+inline typename std::enable_if<!std::is_same<typename std::decay<AnyFuncT>::type, xxd::multi_delegate<void(ArgsT...)>>::value, xxd::delegate_handle>::type xxd::multi_delegate<ArgsT...>::add_any_func(AnyFuncT&& func) noexcept
 {
     delegate_handle handle(0x4, dlgt_id++, this, 0);
     dlgt_map[handle.to_string()] = std::make_shared<dlgt::any_func_delegate<AnyFuncT, void(ArgsT...)>>(std::forward<AnyFuncT>(func));
