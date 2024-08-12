@@ -10,7 +10,6 @@
 
 #include <vector>
 #include <memory>
-#include <sstream>
 #include <unordered_map>
 
 #define DECLARE_FUNCTION_DELEGATE(delegate_name, return_type, ...) typedef ::xxd::single_delegate<return_type(__VA_ARGS__)> (delegate_name);
@@ -139,22 +138,20 @@ private:
     template<typename ...ArgsT>
     friend class multi_delegate;
 
-    inline delegate_handle(uint32_t t, uint32_t i, void* p, void* b) : tdlgt(t), idlgt(i), pdlgt(p), pbind(b) { }
+    // 代理类型, 代理id, 代理类, 绑定地址
+    inline delegate_handle(uint32_t tdlgt, uint32_t idlgt, void* pdlgt, void* pbind) : 
+        t(tdlgt & 0xf), i(idlgt & 0xf), p(reinterpret_cast<uintptr_t>(pdlgt) & 0xf), b(reinterpret_cast<uintptr_t>(pbind) & 0xf) { }
 
     // Handle转化为字符串函数
-    inline std::string to_string() const noexcept
+    inline uint32_t to_key() const noexcept
     {
-        static std::stringstream ss;
-        ss << tdlgt << idlgt << pdlgt << pbind;
-        std::string key = ss.str();
-        ss.str("");
-        return key;
+        return t | (i << 8) | (p << 16) | (b << 24);
     };
 
-    uint32_t tdlgt; // 代理类型
-    uint32_t idlgt; // 代理id
-    void* pdlgt; // 代理类
-    void* pbind; // 绑定地址
+    uint8_t t;
+    uint8_t i;
+    uint8_t p;
+    uint8_t b;
 };
 
 template<typename ReturnT, typename ...ArgsT>
@@ -248,7 +245,7 @@ private:
     bool remove(const Comp& rm_lambda) noexcept;
     
     uint32_t dlgt_id;
-    std::unordered_map<std::string, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>> dlgt_map;
+    std::unordered_map<uint32_t, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>> dlgt_map;
 };
 
 }
@@ -343,7 +340,7 @@ template<typename ...ArgsT>
 inline xxd::delegate_handle xxd::multi_delegate<ArgsT...>::add_function(const typename dlgt::func_delegate<void(ArgsT...)>::func_type& func) noexcept
 {
     delegate_handle handle(0, dlgt_id++, this, reinterpret_cast<void*>(func));
-    dlgt_map[handle.to_string()] = std::make_shared<dlgt::func_delegate<void(ArgsT...)>>(func);
+    dlgt_map[handle.to_key()] = std::make_shared<dlgt::func_delegate<void(ArgsT...)>>(func);
     
     return handle;
 }
@@ -353,7 +350,7 @@ template<class ClassT>
 inline xxd::delegate_handle xxd::multi_delegate<ArgsT...>::add_object(ClassT* obj, const typename dlgt::obj_func_delegate<ClassT, void(ArgsT...)>::func_type& obj_func) noexcept
 {
     delegate_handle handle(0x1, dlgt_id++, this, reinterpret_cast<void*>(obj));
-    dlgt_map[handle.to_string()] = std::make_shared<dlgt::obj_func_delegate<ClassT, void(ArgsT...)>>(obj, obj_func);
+    dlgt_map[handle.to_key()] = std::make_shared<dlgt::obj_func_delegate<ClassT, void(ArgsT...)>>(obj, obj_func);
     
     return handle;
 }
@@ -363,7 +360,7 @@ template<class ClassT>
 inline xxd::delegate_handle xxd::multi_delegate<ArgsT...>::add_safe_obj(const std::shared_ptr<ClassT>& obj_shared, const typename dlgt::obj_func_delegate<ClassT, void(ArgsT...)>::func_type& obj_func) noexcept
 {
     delegate_handle handle(0x2, dlgt_id++, this, reinterpret_cast<void*>(obj_shared.get()));
-    dlgt_map[handle.to_string()] = std::make_shared<dlgt::obj_func_safe_delegate<ClassT, void(ArgsT...)>>(obj_shared, obj_func);
+    dlgt_map[handle.to_key()] = std::make_shared<dlgt::obj_func_safe_delegate<ClassT, void(ArgsT...)>>(obj_shared, obj_func);
     
     return handle;
 }
@@ -373,7 +370,7 @@ template<class AnyFuncT>
 inline typename std::enable_if<!std::is_same<typename std::decay<AnyFuncT>::type, xxd::multi_delegate<void(ArgsT...)>>::value, xxd::delegate_handle>::type xxd::multi_delegate<ArgsT...>::add_any_func(AnyFuncT&& func) noexcept
 {
     delegate_handle handle(0x4, dlgt_id++, this, 0);
-    dlgt_map[handle.to_string()] = std::make_shared<dlgt::any_func_delegate<AnyFuncT, void(ArgsT...)>>(std::forward<AnyFuncT>(func));
+    dlgt_map[handle.to_key()] = std::make_shared<dlgt::any_func_delegate<AnyFuncT, void(ArgsT...)>>(std::forward<AnyFuncT>(func));
     
     return handle;
 }
@@ -396,14 +393,14 @@ inline void xxd::multi_delegate<ArgsT...>::operator()(ArgsT ...args) noexcept
 template<typename ...ArgsT>
 inline bool xxd::multi_delegate<ArgsT...>::remove(const xxd::delegate_handle& handle) noexcept
 {
-    std::string key = handle.to_string();
+    uint32_t key = handle.to_key();
     return dlgt_map.erase(key);
 }
 
 template<typename ...ArgsT>
 inline bool xxd::multi_delegate<ArgsT...>::remove(const typename dlgt::func_delegate<void(ArgsT...)>::func_type& func) noexcept
 {
-    auto rm_lambda = [&](const typename std::unordered_map<std::string, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator& it)->bool
+    auto rm_lambda = [&](const typename std::unordered_map<uint32_t, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator& it)->bool
     {
         dlgt::idelegate<void(ArgsT...)>* dlgt_ptr = (*it).second.get();
         auto flag = dynamic_cast<dlgt::func_delegate<void(ArgsT...)>*>(dlgt_ptr);
@@ -416,7 +413,7 @@ template<typename ...ArgsT>
 template<class ClassT>
 inline bool xxd::multi_delegate<ArgsT...>::remove(ClassT* obj, const typename dlgt::obj_func_delegate<ClassT, void(ArgsT...)>::func_type& obj_func) noexcept
 {
-    auto rm_lambda = [&](const typename std::unordered_map<std::string, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator& it)->bool
+    auto rm_lambda = [&](const typename std::unordered_map<uint32_t, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator& it)->bool
     {
         dlgt::idelegate<void(ArgsT...)>* dlgt_ptr = (*it).second.get();
         auto flag = dynamic_cast<dlgt::obj_func_delegate<ClassT, void(ArgsT...)>*>(dlgt_ptr);
@@ -429,7 +426,7 @@ template<typename ...ArgsT>
 template<class ClassT>
 inline bool xxd::multi_delegate<ArgsT...>::remove(const std::shared_ptr<ClassT>& obj_shared, const typename dlgt::obj_func_delegate<ClassT, void(ArgsT...)>::func_type& obj_func) noexcept
 {
-    auto rm_lambda = [&](const typename std::unordered_map<std::string, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator& it)->bool
+    auto rm_lambda = [&](const typename std::unordered_map<uint32_t, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator& it)->bool
     {
         dlgt::idelegate<void(ArgsT...)>* dlgt_ptr = (*it).second.get();
         auto flag = dynamic_cast<dlgt::obj_func_safe_delegate<ClassT, void(ArgsT...)>*>(dlgt_ptr);
@@ -449,7 +446,7 @@ template<typename ...ArgsT>
 template<class Comp>
 bool xxd::multi_delegate<ArgsT...>::remove(const Comp& rm_lambda) noexcept
 {
-    std::vector<typename std::unordered_map<std::string, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator> delete_items;
+    std::vector<typename std::unordered_map<uint32_t, std::shared_ptr<dlgt::idelegate<void(ArgsT...)>>>::iterator> delete_items;
     
     for (auto it = dlgt_map.begin(); it != dlgt_map.end(); it++)
     {
