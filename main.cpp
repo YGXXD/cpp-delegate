@@ -38,7 +38,8 @@ void Add(int a, int b)
     cout << a - b << endl;
 }
 
-int main(int argc, const char * argv[]) {
+int main(int argc, const char * argv[]) 
+{
     auto a = std::make_shared<A>();
     auto b = new B();
     FOnAdd d;
